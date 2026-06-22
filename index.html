@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>演讲比赛组卷工具 - Paper Builder</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1a1a2e;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --primary: #4f46e5;
+      --primary-light: #eef2ff;
+      --primary-dark: #4338ca;
+      --success: #059669;
+      --success-light: #ecfdf5;
+      --warning: #d97706;
+      --warning-light: #fffbeb;
+      --danger: #dc2626;
+      --danger-light: #fef2f2;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.04);
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans SC', sans-serif;
+    }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    .app-header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      height: 56px;
+      gap: 32px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .app-logo {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--primary);
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .app-logo svg { width: 24px; height: 24px; }
+
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      height: 100%;
+    }
+    .nav-tab {
+      padding: 0 16px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      font-family: var(--font);
+      white-space: nowrap;
+    }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      font-weight: 500;
+    }
+
+    .main-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .card-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+      font-family: var(--font);
+      white-space: nowrap;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-outline { background: #fff; color: var(--text); border-color: var(--border); }
+    .btn-outline:hover { background: var(--bg); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-success:hover { background: #047857; }
+    .btn-danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+    .btn-danger:hover { background: var(--danger-light); }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+    .btn-xs { padding: 3px 8px; font-size: 11px; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-group label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font);
+      transition: border-color 0.15s;
+      background: #fff;
+    }
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-light);
+    }
+    .form-group textarea { resize: vertical; min-height: 60px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table th, table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    table th {
+      font-weight: 500;
+      color: var(--text-muted);
+      font-size: 12px;
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+    }
+    table tbody tr:hover { background: var(--primary-light); }
+    .table-wrap {
+      max-height: 480px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 500;
+    }
+    .badge-blue { background: var(--primary-light); color: var(--primary); }
+    .badge-green { background: var(--success-light); color: var(--success); }
+    .badge-amber { background: var(--warning-light); color: var(--warning); }
+    .badge-red { background: var(--danger-light); color: var(--danger); }
+    .badge-gray { background: #f3f4f6; color: var(--text-muted); }
+
+    .difficulty-dots {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .difficulty-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #d1d5db;
+    }
+    .difficulty-dot.filled { background: var(--warning); }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--text-muted);
+    }
+    .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.4; }
+    .empty-state p { font-size: 13px; }
+
+    .toast {
+      position: fixed;
+      top: 72px;
+      right: 24px;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 200;
+      animation: slideIn 0.3s ease;
+      box-shadow: var(--shadow-md);
+    }
+    .toast-success { background: var(--success); color: #fff; }
+    .toast-error { background: var(--danger); color: #fff; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 150;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn 0.15s;
+    }
+    .modal {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 24px;
+      width: 90%;
+      max-width: 640px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    }
+    .modal h3 { font-size: 15px; margin-bottom: 16px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .tag-cloud {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tag-chip {
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #fff;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .tag-chip.selected {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    .rule-section {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .rule-section h4 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--primary);
+    }
+
+    .paper-preview {
+      font-family: 'SimSun', 'STSong', serif;
+      font-size: 14px;
+      line-height: 2;
+    }
+    .paper-preview .section-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-align: center;
+      margin: 20px 0 12px;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+    }
+    .paper-preview .section-title:first-child { border-top: none; margin-top: 0; }
+    .paper-preview .q-item {
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      transition: background 0.15s;
+    }
+    .paper-preview .q-item:hover { background: var(--bg); }
+    .paper-preview .q-num { font-weight: 600; margin-right: 6px; }
+
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat-item {
+      background: var(--bg);
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      text-align: center;
+    }
+    .stat-num { font-size: 24px; font-weight: 600; color: var(--primary); }
+    .stat-label { font-size: 12px; color: var(--text-muted); }
+
+    .progress-bar {
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .ab-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 16px;
+    }
+    .ab-tab {
+      padding: 8px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: #fff;
+      transition: all 0.15s;
+    }
+    .ab-tab.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .search-bar input,
+    .search-bar select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-family: var(--font);
+    }
+
+    .help-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .main-content { padding: 12px; }
+      .form-row { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .nav-tabs { overflow-x: auto; }
+    }
+
+    .text-center { text-align: center; }
+    .mt-8 { margin-top: 8px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-16 { margin-top: 16px; }
+    .mb-8 { margin-bottom: 8px; }
+    .mb-16 { margin-bottom: 16px; }
+    .gap-8 { gap: 8px; }
+    .flex { display: flex; }
+    .flex-wrap { flex-wrap: wrap; }
+    .flex-between { justify-content: space-between; }
+    .flex-center { align-items: center; }
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+    演讲比赛组卷工具
+  </div>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-page="bank">题库管理</button>
+    <button class="nav-tab" data-page="rules">组卷规则</button>
+    <button class="nav-tab" data-page="generate">生成试题</button>
+  </nav>
+</header>
+
+<div class="main-content">
+
+  <!-- ==================== 题库管理 ==================== -->
+  <div id="page-bank" class="page active">
+    <div class="stats-row" id="bank-stats"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">主题列表</div>
+          <div class="card-subtitle">管理所有演讲主题，支持手动录入和Excel批量导入</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="downloadTemplate()">下载导入模板</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer">
+            批量导入Excel
+            <input type="file" accept=".xlsx,.xls" onchange="importExcel(this)" style="display:none">
+          </label>
+          <button class="btn btn-primary btn-sm" onclick="openAddQuestion()">+ 添加主题</button>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input type="text" id="bank-search" placeholder="搜索演讲主题..." oninput="renderBank()" style="flex:1;min-width:200px">
+        <select id="bank-filter-type" onchange="renderBank()">
+          <option value="all">全部题型</option>
+          <option value="sentence">一句话演讲</option>
+          <option value="keyword">关键词演讲</option>
+        </select>
+        <select id="bank-filter-diff" onchange="renderBank()">
+          <option value="all">全部难度</option>
+          <option value="1">难度 ★</option>
+          <option value="2">难度 ★★</option>
+          <option value="3">难度 ★★★</option>
+          <option value="4">难度 ★★★★</option>
+          <option value="5">难度 ★★★★★</option>
+        </select>
+        <select id="bank-filter-kp" onchange="renderBank()">
+          <option value="all">全部标签</option>
+        </select>
+      </div>
+      <div class="table-wrap" id="bank-table-wrap"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 组卷规则 ==================== -->
+  <div id="page-rules" class="page">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">组卷规则配置</div>
+          <div class="card-subtitle">定义试题结构，系统按规则自动从题库选题</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select id="rule-preset" onchange="loadRulePreset()" style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+            <option value="">-- 加载已保存规则 --</option>
+          </select>
+          <button class="btn btn-outline btn-sm" onclick="saveRule()">保存当前规则</button>
+          <button class="btn btn-primary btn-sm" onclick="addRuleSection()">+ 添加题型</button>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>试卷名称</label>
+          <input type="text" id="paper-name" value="演讲比赛试题" placeholder="如：2026年全国英语演讲大赛初赛">
+        </div>
+        <div class="form-group">
+          <label>生成平行试卷</label>
+          <select id="ab-papers">
+            <option value="1">仅A卷</option>
+            <option value="2">A卷 + B卷</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>B卷难度偏移</label>
+          <select id="ab-diff-offset">
+            <option value="0">不偏移（同难度不同题）</option>
+            <option value="1">B卷难度+1</option>
+            <option value="-1">B卷难度-1</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="rule-sections"></div>
+
+      <div class="help-hint mt-12">
+        提示：每个题型可设置数量、难度范围和知识点筛选。系统将尽量匹配，若题库不足会显示缺口。
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 生成试卷 ==================== -->
+  <div id="page-generate" class="page">
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">试题生成</div>
+          <div class="card-subtitle">按当前规则自动选题，预览并导出</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="generatePaper()">生成试题</button>
+          <button class="btn btn-outline btn-sm" onclick="exportPaper()" id="btn-export" disabled>导出Word</button>
+          <button class="btn btn-outline btn-sm" onclick="printPaper()" id="btn-print" disabled>打印试题</button>
+        </div>
+      </div>
+
+      <div id="gen-stats" class="stats-row" style="display:none"></div>
+
+      <div id="gen-ab-tabs" class="ab-tabs" style="display:none">
+        <button class="ab-tab active" data-ab="A">A 卷</button>
+        <button class="ab-tab" data-ab="B">B 卷</button>
+      </div>
+
+      <div id="paper-content" class="card" style="background:var(--bg)">
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="8" y1="8" x2="16" y2="8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="12" y2="16"/></svg>
+          <p>请先设置组卷规则，然后点击"生成试题"</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 添加/编辑题目弹窗 -->
+<div id="question-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeQuestionModal()">
+  <div class="modal">
+    <h3 id="modal-title">添加题目</h3>
+    <input type="hidden" id="q-edit-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label>题型 *</label>
+        <select id="q-type">
+          <option value="sentence">一句话演讲</option>
+          <option value="keyword">关键词演讲</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>难度 * (1-5)</label>
+        <select id="q-difficulty">
+          <option value="1">1 - 非常简单</option>
+          <option value="2">2 - 简单</option>
+          <option value="3" selected>3 - 中等</option>
+          <option value="4">4 - 较难</option>
+          <option value="5">5 - 非常难</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>主题标签（可多选）</label>
+        <div class="tag-cloud" id="q-tags"></div>
+      </div>
+    </div>
+    <div class="form-group mb-8">
+      <label>演讲主题 *</label>
+      <textarea id="q-content" rows="3" placeholder="输入演讲主题内容..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>来源/备注</label>
+        <input type="text" id="q-source" placeholder="如：2025年全国英语演讲大赛">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeQuestionModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="saveQuestion()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 保存规则弹窗 -->
+<div id="rule-save-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeRuleSaveModal()">
+  <div class="modal" style="max-width:400px">
+    <h3>保存组卷规则</h3>
+    <div class="form-group mb-16">
+      <label>规则名称</label>
+      <input type="text" id="rule-save-name" placeholder="如：演讲比赛标准规则">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline btn-sm" onclick="closeRuleSaveModal()">取消</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmSaveRule()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== 数据层 ====================
+const KNOWLEDGE_POINTS = ['社会热点', '科技发展', '教育成长', '文化传承', '环境保护', '个人梦想', '青春励志', '国际视野'];
+const QUESTION_TYPES = {
+  sentence: '一句话演讲',
+  keyword: '关键词演讲'
+};
+
+function loadData() {
+  return {
+    questions: JSON.parse(localStorage.getItem('pb_speech_questions') || '[]'),
+    rules: JSON.parse(localStorage.getItem('pb_speech_rules') || '[]'),
+    savedRules: JSON.parse(localStorage.getItem('pb_speech_saved_rules') || '[]')
+  };
+}
+function saveQuestions(qs) { localStorage.setItem('pb_speech_questions', JSON.stringify(qs)); }
+function saveSavedRules(rs) { localStorage.setItem('pb_speech_saved_rules', JSON.stringify(rs)); }
+
+// ==================== Toast ====================
+function toast(msg, type) {
+  type = type || 'success';
+  var el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 2500);
+}
+
+// ==================== 导航 ====================
+document.querySelectorAll('.nav-tab').forEach(function(tab) {
+  tab.addEventListener('click', function() {
+    document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.page).classList.add('active');
+    if (tab.dataset.page === 'bank') renderBank();
+    if (tab.dataset.page === 'rules') renderRules();
+    if (tab.dataset.page === 'generate') updateGenStats();
+  });
+});
+
+// ==================== 题库管理 ====================
+function getQuestions() { return loadData().questions; }
+
+function getDifficultyLabel(d) {
+  var stars = ''; for (var i=0; i<d; i++) stars += '★';
+  return stars;
+}
+
+function renderDifficultyDots(d) {
+  var html = '<span class="difficulty-dots">';
+  for (var i=0; i<5; i++) {
+    html += '<span class="difficulty-dot' + (i<d?' filled':'') + '"></span>';
+  }
+  html += '</span>';
+  return html;
+}
+
+function renderBankStats() {
+  var qs = getQuestions();
+  var stats = { total: qs.length };
+  Object.keys(QUESTION_TYPES).forEach(function(t){ stats[t] = 0; });
+  qs.forEach(function(q){ stats[q.type] = (stats[q.type]||0) + 1; });
+  var html = '<div class="stat-item"><div class="stat-num">' + stats.total + '</div><div class="stat-label">题库总数</div></div>';
+  Object.keys(QUESTION_TYPES).forEach(function(t){
+    html += '<div class="stat-item"><div class="stat-num">' + (stats[t]||0) + '</div><div class="stat-label">' + QUESTION_TYPES[t] + '</div></div>';
+  });
+  document.getElementById('bank-stats').innerHTML = html;
+}
+
+function renderBank() {
+  renderBankStats();
+  var qs = getQuestions();
+  var search = (document.getElementById('bank-search').value || '').toLowerCase();
+  var typeFilter = document.getElementById('bank-filter-type').value;
+  var diffFilter = document.getElementById('bank-filter-diff').value;
+  var kpFilter = document.getElementById('bank-filter-kp').value;
+
+  var filtered = qs;
+  if (search) {
+    filtered = filtered.filter(function(q){
+      return (q.content||'').toLowerCase().indexOf(search) >= 0
+        || (q.source||'').toLowerCase().indexOf(search) >= 0;
+    });
+  }
+  if (typeFilter !== 'all') filtered = filtered.filter(function(q){ return q.type === typeFilter; });
+  if (diffFilter !== 'all') filtered = filtered.filter(function(q){ return q.difficulty == diffFilter; });
+  if (kpFilter !== 'all') filtered = filtered.filter(function(q){ return (q.knowledgePoints||[]).indexOf(kpFilter) >= 0; });
+
+  // Update knowledge point filter options
+  var allKPs = {};
+  qs.forEach(function(q){ (q.knowledgePoints||[]).forEach(function(kp){ allKPs[kp] = true; }); });
+  var kpSelect = document.getElementById('bank-filter-kp');
+  var kpVal = kpSelect.value;
+  kpSelect.innerHTML = '<option value="all">全部标签</option>';
+  Object.keys(allKPs).sort().forEach(function(kp){
+    kpSelect.innerHTML += '<option value="' + kp + '">' + kp + '</option>';
+  });
+  kpSelect.value = kpVal;
+
+  if (filtered.length === 0) {
+    document.getElementById('bank-table-wrap').innerHTML =
+      '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">' +
+      '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>' +
+      '<p>' + (qs.length ? '没有匹配的主题' : '题库为空，点击"添加主题"或"批量导入Excel"开始') + '</p></div>';
+    return;
+  }
+
+  var html = '<table><thead><tr><th>题型</th><th>难度</th><th>演讲主题</th><th style="width:140px">标签</th><th style="width:100px">来源</th><th style="width:80px">操作</th></tr></thead><tbody>';
+  filtered.forEach(function(q, i){
+    html += '<tr>';
+    html += '<td><span class="badge badge-blue">' + QUESTION_TYPES[q.type] + '</span></td>';
+    html += '<td>' + renderDifficultyDots(q.difficulty) + '</td>';
+    html += '<td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (q.content||'').replace(/"/g,'&quot;') + '">' + (q.content||'') + '</td>';
+    html += '<td><span class="badge badge-gray">' + (q.knowledgePoints||[]).join('</span> <span class="badge badge-gray">') + '</span></td>';
+    html += '<td style="font-size:11px;color:var(--text-muted)">' + (q.source||'') + '</td>';
+    html += '<td><button class="btn btn-outline btn-xs" onclick="editQuestion(' + i + ')" style="margin-right:3px">编辑</button>' +
+            '<button class="btn btn-danger btn-xs" onclick="deleteQuestion(' + i + ')">删除</button></td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('bank-table-wrap').innerHTML = html;
+}
+
+function openAddQuestion() {
+  document.getElementById('modal-title').textContent = '添加演讲主题';
+  document.getElementById('q-edit-id').value = '';
+  document.getElementById('q-type').value = 'sentence';
+  document.getElementById('q-difficulty').value = '3';
+  document.getElementById('q-content').value = '';
+  document.getElementById('q-source').value = '';
+  renderTagCloud([]);
+  document.getElementById('question-modal').style.display = 'flex';
+}
+
+function editQuestion(idx) {
+  var q = getQuestions()[idx];
+  document.getElementById('modal-title').textContent = '编辑演讲主题';
+  document.getElementById('q-edit-id').value = q._id || '';
+  document.getElementById('q-type').value = q.type;
+  document.getElementById('q-difficulty').value = q.difficulty;
+  document.getElementById('q-content').value = q.content || '';
+  document.getElementById('q-source').value = q.source || '';
+  renderTagCloud(q.knowledgePoints || []);
+  document.getElementById('question-modal').style.display = 'flex';
+}
+
+function closeQuestionModal() {
+  document.getElementById('question-modal').style.display = 'none';
+}
+
+function renderTagCloud(selected) {
+  selected = selected || [];
+  var html = '';
+  KNOWLEDGE_POINTS.forEach(function(kp){
+    var isSel = selected.indexOf(kp) >= 0;
+    html += '<span class="tag-chip' + (isSel ? ' selected' : '') + '" onclick="toggleTag(this)" data-kp="' + kp + '">' + kp + '</span>';
+  });
+  document.getElementById('q-tags').innerHTML = html;
+}
+
+function toggleTag(el) {
+  el.classList.toggle('selected');
+}
+
+function getSelectedTags() {
+  var tags = [];
+  document.querySelectorAll('#q-tags .tag-chip.selected').forEach(function(el){
+    tags.push(el.dataset.kp);
+  });
+  return tags;
+}
+
+function saveQuestion() {
+  var editId = document.getElementById('q-edit-id').value;
+  var q = {
+    _id: editId || ('q_' + Date.now() + '_' + Math.random().toString(36).slice(2,6)),
+    type: document.getElementById('q-type').value,
+    difficulty: parseInt(document.getElementById('q-difficulty').value),
+    knowledgePoints: getSelectedTags(),
+    content: document.getElementById('q-content').value.trim(),
+    options: [],
+    answer: '',
+    source: document.getElementById('q-source').value.trim()
+  };
+
+  if (!q.content) {
+    toast('请填写演讲主题', 'error'); return;
+  }
+
+  var all = getQuestions();
+  if (editId) {
+    var found = false;
+    for (var i = 0; i < all.length; i++) {
+      if (all[i]._id === editId) { all[i] = q; found = true; break; }
+    }
+    if (!found) { all.push(q); }
+  } else {
+    all.push(q);
+  }
+  saveQuestions(all);
+  closeQuestionModal();
+  renderBank();
+  toast(editId ? '主题已更新' : '主题已添加');
+}
+
+function deleteQuestion(idx) {
+  if (!confirm('确定删除这个演讲主题吗？此操作不可恢复。')) return;
+  var all = getQuestions();
+  all.splice(idx, 1);
+  saveQuestions(all);
+  renderBank();
+  toast('主题已删除');
+}
+
+// ==================== Excel 导入导出 ====================
+function downloadTemplate() {
+  var wb = XLSX.utils.book_new();
+  var template = [
+    ['题型(sentence/keyword)', '难度(1-5)', '主题标签(逗号分隔)', '演讲主题内容', '来源/备注'],
+    ['sentence', '3', '社会热点,科技发展', '人工智能如何改变我们的日常生活', '2025全国英语演讲大赛'],
+    ['keyword', '2', '个人梦想,青春励志', '梦想,坚持,勇气,成长', '校园演讲比赛'],
+    ['sentence', '4', '环境保护', 'As environmental challenges grow, what responsibility does each individual bear?', '国际演讲赛题'],
+    ['keyword', '5', '国际视野,文化传承', 'globalization, cultural identity, tradition, innovation, balance', '高级组演讲'],
+  ];
+  var ws = XLSX.utils.aoa_to_sheet(template);
+  ws['!cols'] = [{wch:18},{wch:10},{wch:18},{wch:50},{wch:25}];
+  XLSX.utils.book_append_sheet(wb, ws, '演讲主题导入模板');
+  XLSX.writeFile(wb, '演讲主题导入模板.xlsx');
+}
+
+function importExcel(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type: 'array'});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header: 1});
+      if (rows.length < 2) { toast('文件为空或格式不正确', 'error'); return; }
+      var imported = [];
+      for (var i = 1; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r[0] || !r[3]) continue;
+        imported.push({
+          _id: 'imp_' + Date.now() + '_' + i,
+          type: String(r[0]).trim().toLowerCase(),
+          difficulty: parseInt(r[1]) || 3,
+          knowledgePoints: String(r[2]||'').split(/[,，]/).map(function(s){ return s.trim(); }).filter(Boolean),
+          content: String(r[3]).trim(),
+          options: [],
+          answer: '',
+          source: String(r[4]||'').trim()
+        });
+      }
+      var all = getQuestions().concat(imported);
+      saveQuestions(all);
+      renderBank();
+      toast('成功导入 ' + imported.length + ' 个演讲主题');
+    } catch(err) {
+      toast('导入失败，请检查文件格式', 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
+}
+
+// ==================== 组卷规则 ====================
+var paperRules = [];
+
+function getSavedRules() { return loadData().savedRules; }
+function getCurrentRule() {
+  var sections = [];
+  document.querySelectorAll('#rule-sections .rule-section').forEach(function(sec){
+    var selType = sec.querySelector('.rs-type');
+    var selCount = sec.querySelector('.rs-count');
+    var selDiffMin = sec.querySelector('.rs-diff-min');
+    var selDiffMax = sec.querySelector('.rs-diff-max');
+    var tags = [];
+    sec.querySelectorAll('.tag-chip.selected').forEach(function(t){ tags.push(t.dataset.kp); });
+    sections.push({
+      type: selType ? selType.value : 'single',
+      count: selCount ? parseInt(selCount.value) : 10,
+      diffMin: selDiffMin ? parseInt(selDiffMin.value) : 1,
+      diffMax: selDiffMax ? parseInt(selDiffMax.value) : 5,
+      knowledgePoints: tags
+    });
+  });
+  return sections;
+}
+
+function renderRuleSection(s) {
+  s = s || { type: 'sentence', count: 8, diffMin: 1, diffMax: 5, knowledgePoints: [] };
+  var html = '<div class="rule-section">';
+  html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">';
+  html += '<select class="rs-type" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">';
+  Object.keys(QUESTION_TYPES).forEach(function(t){
+    html += '<option value="' + t + '"' + (s.type===t?' selected':'') + '>' + QUESTION_TYPES[t] + '</option>';
+  });
+  html += '</select>';
+  html += '<label style="font-size:12px;color:var(--text-muted)">数量</label>';
+  html += '<input class="rs-count" type="number" min="1" max="100" value="' + s.count + '" style="width:60px;padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">';
+  html += '<label style="font-size:12px;color:var(--text-muted);margin-left:8px">难度范围</label>';
+  html += '<select class="rs-diff-min" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">';
+  for (var d=1; d<=5; d++) html += '<option value="' + d + '"' + (s.diffMin===d?' selected':'') + '>' + d + '</option>';
+  html += '</select><span style="font-size:12px;color:var(--text-muted)">至</span>';
+  html += '<select class="rs-diff-max" style="padding:6px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">';
+  for (var d=1; d<=5; d++) html += '<option value="' + d + '"' + (s.diffMax===d?' selected':'') + '>' + d + '</option>';
+  html += '</select>';
+  html += '<button class="btn btn-danger btn-xs" onclick="this.closest(\'.rule-section\').remove()" style="margin-left:auto">删除</button>';
+  html += '</div>';
+  html += '<div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">标签筛选（留空=不限制）：</div>';
+  html += '<div class="tag-cloud">';
+  KNOWLEDGE_POINTS.forEach(function(kp){
+    var isSel = (s.knowledgePoints||[]).indexOf(kp) >= 0;
+    html += '<span class="tag-chip' + (isSel?' selected':'') + '" onclick="this.classList.toggle(\'selected\')" data-kp="' + kp + '">' + kp + '</span>';
+  });
+  html += '</div>';
+  html += '</div>';
+  return html;
+}
+
+function addRuleSection(s) {
+  var div = document.createElement('div');
+  div.innerHTML = renderRuleSection(s);
+  document.getElementById('rule-sections').appendChild(div.firstElementChild);
+}
+
+function renderRules() {
+  if (paperRules.length === 0) {
+    paperRules = [
+      { type: 'sentence', count: 8, diffMin: 1, diffMax: 5, knowledgePoints: [] },
+      { type: 'keyword', count: 4, diffMin: 2, diffMax: 5, knowledgePoints: [] },
+    ];
+  }
+
+  document.getElementById('rule-sections').innerHTML = '';
+  paperRules.forEach(function(r){ addRuleSection(r); });
+
+  // Update rule presets
+  var presets = getSavedRules();
+  var sel = document.getElementById('rule-preset');
+  var val = sel.value;
+  sel.innerHTML = '<option value="">-- 加载已保存规则 --</option>';
+  presets.forEach(function(p, i){
+    sel.innerHTML += '<option value="' + i + '">' + p.name + '</option>';
+  });
+  sel.value = val;
+}
+
+function saveRule() {
+  // Save current form state to paperRules
+  paperRules = getCurrentRule();
+  document.getElementById('rule-save-modal').style.display = 'flex';
+}
+
+function closeRuleSaveModal() {
+  document.getElementById('rule-save-modal').style.display = 'none';
+}
+
+function confirmSaveRule() {
+  var name = document.getElementById('rule-save-name').value.trim();
+  if (!name) { toast('请输入规则名称', 'error'); return; }
+  paperRules = getCurrentRule();
+  var presets = getSavedRules();
+  presets.push({ name: name, rules: JSON.parse(JSON.stringify(paperRules)) });
+  saveSavedRules(presets);
+  closeRuleSaveModal();
+  document.getElementById('rule-save-name').value = '';
+  renderRules();
+  toast('规则已保存：' + name);
+}
+
+function loadRulePreset() {
+  var idx = parseInt(document.getElementById('rule-preset').value);
+  if (isNaN(idx)) return;
+  var preset = getSavedRules()[idx];
+  if (!preset) return;
+  paperRules = JSON.parse(JSON.stringify(preset.rules));
+  document.getElementById('rule-sections').innerHTML = '';
+  paperRules.forEach(function(r){ addRuleSection(r); });
+  toast('已加载规则：' + preset.name);
+}
+
+// ==================== 组卷引擎 ====================
+var generatedPapers = { A: [], B: [] };
+
+function generatePaper() {
+  paperRules = getCurrentRule();
+  if (paperRules.length === 0) {
+    toast('请先在"组卷规则"中配置题型', 'error'); return;
+  }
+
+  var qs = getQuestions();
+  if (qs.length === 0) {
+    toast('题库为空，请先添加演讲主题', 'error'); return;
+  }
+
+  var abCount = parseInt(document.getElementById('ab-papers').value);
+  var diffOffset = parseInt(document.getElementById('ab-diff-offset').value) || 0;
+
+  var paperA = assemblePaper(qs, paperRules, 0);
+  var paperB = abCount > 1 ? assemblePaper(qs, paperRules, diffOffset, paperA) : [];
+
+  generatedPapers = { A: paperA, B: paperB };
+
+  // Switch to generate page
+  document.querySelectorAll('.nav-tab').forEach(function(t){ t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.querySelector('[data-page="generate"]').classList.add('active');
+  document.getElementById('page-generate').classList.add('active');
+
+  renderGenerated();
+  toast(paperA.gaps.length === 0 ? '选题完成' : '选题完成，但有主题缺口');
+}
+
+function assemblePaper(allQuestions, rules, diffOffset, excludePaper) {
+  var usedIds = {};
+  if (excludePaper) {
+    excludePaper.sections.forEach(function(s){
+      s.questions.forEach(function(q){ usedIds[q._id] = true; });
+    });
+  }
+
+  var sections = [];
+  var allGaps = [];
+
+  rules.forEach(function(rule) {
+    var diffMin = Math.max(1, Math.min(5, rule.diffMin + diffOffset));
+    var diffMax = Math.max(1, Math.min(5, rule.diffMax + diffOffset));
+
+    var pool = allQuestions.filter(function(q) {
+      if (usedIds[q._id]) return false;
+      if (q.type !== rule.type) return false;
+      if (q.difficulty < diffMin || q.difficulty > diffMax) return false;
+      if (rule.knowledgePoints && rule.knowledgePoints.length > 0) {
+        var qKPs = q.knowledgePoints || [];
+        var hasMatch = rule.knowledgePoints.some(function(kp){ return qKPs.indexOf(kp) >= 0; });
+        if (!hasMatch) return false;
+      }
+      return true;
+    });
+
+    pool.sort(function(a, b){ return a.difficulty - b.difficulty; });
+
+    var selected = [];
+    if (rule.count <= pool.length && rule.count > 1) {
+      var byDiff = {};
+      pool.forEach(function(q){
+        var d = q.difficulty;
+        if (!byDiff[d]) byDiff[d] = [];
+        byDiff[d].push(q);
+      });
+
+      var perDiff = Math.max(1, Math.floor(rule.count / Object.keys(byDiff).length));
+      var remaining = rule.count;
+      var diffLevels = Object.keys(byDiff).sort(function(a,b){ return a-b; });
+
+      diffLevels.forEach(function(level){
+        var take = Math.min(perDiff, remaining, byDiff[level].length);
+        for (var i = 0; i < take; i++) {
+          var q = byDiff[level][i];
+          selected.push(q);
+          usedIds[q._id] = true;
+          remaining--;
+        }
+      });
+
+      var extraPool = pool.filter(function(q){ return selected.indexOf(q) < 0; });
+      for (var i = 0; i < remaining && i < extraPool.length; i++) {
+        selected.push(extraPool[i]);
+        usedIds[extraPool[i]._id] = true;
+      }
+    } else {
+      for (var i = 0; i < Math.min(rule.count, pool.length); i++) {
+        selected.push(pool[i]);
+        usedIds[pool[i]._id] = true;
+      }
+    }
+
+    var gap = rule.count - selected.length;
+    if (gap > 0) {
+      allGaps.push({ type: rule.type, need: gap, label: QUESTION_TYPES[rule.type] });
+    }
+
+    sections.push({
+      type: rule.type,
+      label: QUESTION_TYPES[rule.type],
+      questions: selected,
+      requested: rule.count,
+      gap: gap
+    });
+  });
+
+  return { sections: sections, gaps: allGaps };
+}
+
+function renderGenerated() {
+  updateGenStats();
+
+  var abCount = parseInt(document.getElementById('ab-papers').value);
+  var paper = generatedPapers.A;
+
+  // A/B tabs
+  var tabsDiv = document.getElementById('gen-ab-tabs');
+  if (abCount > 1 && generatedPapers.B && generatedPapers.B.sections) {
+    tabsDiv.style.display = 'flex';
+    tabsDiv.querySelectorAll('.ab-tab').forEach(function(t){
+      t.classList.remove('active');
+      if (t.dataset.ab === 'A') t.classList.add('active');
+    });
+  } else {
+    tabsDiv.style.display = 'none';
+  }
+
+  document.getElementById('btn-export').disabled = false;
+  document.getElementById('btn-print').disabled = false;
+
+  renderPaperPreview('A');
+}
+
+function updateGenStats() {
+  var paper = generatedPapers.A;
+  if (!paper || !paper.sections) {
+    document.getElementById('gen-stats').style.display = 'none';
+    return;
+  }
+  document.getElementById('gen-stats').style.display = 'grid';
+  var totalQ = 0, totalGap = 0;
+  paper.sections.forEach(function(s){ totalQ += s.questions.length; totalGap += s.gap; });
+
+  var html = '<div class="stat-item"><div class="stat-num" style="color:var(--success)">' + totalQ + '</div><div class="stat-label">已选主题数</div></div>';
+  html += '<div class="stat-item"><div class="stat-num" style="color:'+(totalGap>0?'var(--danger)':'var(--success)')+'">' + (totalGap>0?'-'+totalGap:'0') + '</div><div class="stat-label">主题缺口</div></div>';
+  html += '<div class="stat-item"><div class="stat-num">' + paper.sections.length + '</div><div class="stat-label">题型数量</div></div>';
+  html += '<div class="stat-item"><div class="stat-num">' + paper.gaps.length + '</div><div class="stat-label">缺口题型</div></div>';
+  document.getElementById('gen-stats').innerHTML = html;
+}
+
+function renderPaperPreview(ab) {
+  var paper = ab === 'A' ? generatedPapers.A : generatedPapers.B;
+  if (!paper || !paper.sections) return;
+
+  var qNum = 1;
+  var html = '<div class="paper-preview">';
+
+  paper.sections.forEach(function(sec, si){
+    html += '<div class="section-title">' + sec.label + ' (' + sec.questions.length + '/' + sec.requested + '个)</div>';
+
+    if (sec.gap > 0) {
+      html += '<div style="padding:8px;background:var(--warning-light);border-radius:4px;margin:8px 0;font-size:12px;color:var(--warning)">';
+      html += '主题不足：需 ' + sec.requested + ' 个，仅有 ' + sec.questions.length + ' 个，缺口 ' + sec.gap + ' 个。请补充题库。';
+      html += '</div>';
+    }
+
+    sec.questions.forEach(function(q, qi){
+      html += '<div class="q-item">';
+      html += '<span class="q-num">' + qNum + '.</span> ' + (q.content||'').replace(/\n/g, '<br>');
+      if (q.options && q.options.length > 0) {
+        html += '<div style="margin-left:20px;margin-top:4px">';
+        q.options.forEach(function(opt, oi){
+          html += '<div>' + opt + '</div>';
+        });
+        html += '</div>';
+      }
+      html += '</div>';
+      qNum++;
+    });
+  });
+
+  html += '</div>';
+
+  // Show gaps summary
+  if (paper.gaps.length > 0) {
+    html += '<div class="card" style="margin-top:16px;background:var(--warning-light);border-color:var(--warning)">';
+    html += '<div style="font-weight:600;color:var(--warning);font-size:13px;margin-bottom:4px">主题缺口汇总</div>';
+    paper.gaps.forEach(function(g){
+      html += '<div style="font-size:12px;color:var(--warning)">' + g.label + '：缺 ' + g.need + ' 个</div>';
+    });
+    html += '</div>';
+  }
+
+  document.getElementById('paper-content').innerHTML = html;
+}
+
+// A/B tab switching
+document.getElementById('gen-ab-tabs').addEventListener('click', function(e) {
+  if (!e.target.classList.contains('ab-tab')) return;
+  document.querySelectorAll('#gen-ab-tabs .ab-tab').forEach(function(t){ t.classList.remove('active'); });
+  e.target.classList.add('active');
+  renderPaperPreview(e.target.dataset.ab);
+});
+
+// ==================== 导出 ====================
+function exportPaper() {
+  var abCount = parseInt(document.getElementById('ab-papers').value);
+
+  var allContent = '';
+  [generatedPapers.A, generatedPapers.B].forEach(function(paper, pi) {
+    if (!paper || !paper.sections) return;
+    if (pi > 0 && abCount < 2) return;
+
+    var label = pi === 0 ? 'A卷' : 'B卷';
+    allContent += '<h1 style="text-align:center;margin-bottom:4px">' + (document.getElementById('paper-name').value||'演讲比赛试题') + '</h1>';
+    allContent += '<h2 style="text-align:center;color:#666;margin-bottom:20px">' + label + '</h2>';
+
+    var qNum = 1;
+    paper.sections.forEach(function(sec){
+      allContent += '<h3 style="border-bottom:1px solid #ccc;padding-bottom:4px;margin-top:20px">' + sec.label + ' (' + sec.questions.length + '个主题)</h3>';
+
+      sec.questions.forEach(function(q){
+        allContent += '<p style="margin:8px 0"><strong>' + qNum + '.</strong> ' + (q.content||'').replace(/\n/g, '<br>') + '</p>';
+        if (q.options && q.options.length > 0) {
+          allContent += '<ol style="list-style-type:upper-alpha;margin-left:28px">';
+          q.options.forEach(function(opt){ allContent += '<li>' + opt + '</li>'; });
+          allContent += '</ol>';
+        }
+        qNum++;
+      });
+    });
+    if (abCount > 1 && pi === 0) allContent += '<div style="page-break-after:always"></div>';
+  });
+
+  var blob = new Blob(['<html><head><meta charset="UTF-8"><style>body{font-family:SimSun,STSong,serif;font-size:14px;line-height:2;padding:40px}h1{font-size:22px}h2{font-size:16px}h3{font-size:15px}p{margin:6px 0}ol{margin:4px 0}</style></head><body>' + allContent + '</body></html>'], {type: 'application/msword'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = (document.getElementById('paper-name').value||'演讲比赛试题') + '.doc';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('试题已导出为Word文档');
+}
+
+function printPaper() {
+  var paperHtml = document.getElementById('paper-content').innerHTML;
+  var title = document.getElementById('paper-name').value || '演讲比赛试题';
+  var win = window.open('', '_blank', 'width=800,height=600');
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>');
+  win.document.write('<style>body{font-family:SimSun,STSong,serif;font-size:14px;line-height:2;padding:40px;max-width:800px;margin:0 auto}.section-title{font-size:16px;font-weight:bold;text-align:center;margin:20px 0 12px;padding-top:16px;border-top:1px dashed #ccc}.q-item{margin-bottom:12px}.q-num{font-weight:bold}</style>');
+  win.document.write('</head><body><h1 style="text-align:center">' + title + '</h1>');
+  win.document.write(paperHtml.replace(/section-title/g,'section-title-print').replace(/q-item/g,'q-item-print').replace(/q-num/g,'q-num-print'));
+  win.document.write('</body></html>');
+  win.document.close();
+  setTimeout(function(){ win.print(); }, 500);
+}
+
+// ==================== 初始化示例数据 ====================
+function initSampleData() {
+  var DATA_VERSION = 'v2_real_310';
+  if (localStorage.getItem('pb_speech_data_version') === DATA_VERSION && getQuestions().length > 0) return;
+  var REAL_SPEECH_BANK = [{"_id":"real_0001","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","环境保护","国际视野","社会热点"],"content":"Some tour guides now record videos of tourist attractions with added explanation and upload them to social media. Please share your views on this phenomenon.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0002","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想"],"content":"What kind of role do you enjoy playing when collaborating in a team, and what kind of role do you avoid playing? Please explain with specific reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0003","type":"sentence","difficulty":5,"knowledgePoints":["科技发展","文化传承","青春励志"],"content":"What do you think is the essence of leadership? Please explain with specific examples.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0004","type":"sentence","difficulty":3,"knowledgePoints":["个人梦想"],"content":"What are the three most important factors that influence your choice of friends? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0005","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想"],"content":"Express your opinion on the statement, “The true secret of happiness lies in taking a genuine interest in all the details of daily life.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0006","type":"sentence","difficulty":3,"knowledgePoints":["青春励志","社会热点"],"content":"Recent years have witnessed a fitness boom, with an increasing number of individuals adopting sports and fitness as a way of life. How do you perceive and interpret this phenomenon?","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0007","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","国际视野","社会热点"],"content":"Nowadays, an increasing number of traditional Chinese snacks are gaining popularity and receiving high praise from travelers around the world. What do you think are the reasons behind this phenomenon?","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0008","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想"],"content":"A new phrase “gap day” is frequently discussed on the Internet recently, meaning taking a day off from a busy schedule. What’s your opinion towards “gap day”?","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0009","type":"sentence","difficulty":2,"knowledgePoints":["教育成长"],"content":"Express your opinion on the statement, “In learning you will teach, and in teaching you will learn.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0010","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Should one turn a hobby into a career? Please share your opinion.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0011","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想","青春励志"],"content":"Express your opinion on the statement, “Success is not final, failure is not fatal: It is the courage to continue that counts.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0012","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想","社会热点"],"content":"What can we do to ensure that elderly individuals can also enjoy the convenience brought by digitalization? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0013","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","教育成长"],"content":"Do you think distance education will replace classroom-based education? Please share your opinion.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0014","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","教育成长","个人梦想"],"content":"Why is learning from both success and failure so important for growth? Please share your insights with examples.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0015","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"In which domain of service industry do you think humans will eventually be replaced by AI? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0016","type":"sentence","difficulty":2,"knowledgePoints":["环境保护"],"content":"Express your opinion on the statement, “If you carry your childhood with you, you never become older.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0017","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","环境保护","个人梦想","国际视野","社会热点"],"content":"Nowadays, many people choose to become “digital nomads”, who travel freely while working remotely using modern technology, including Internet. What do you think of this career choice? Please share your opinion.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0018","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"In what ways do you think we can infuse historical sites with modern vitality? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0019","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Remember to look up at the stars and not down at your feet.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0020","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Many of us believe striving for perfection leads to success, but sometimes perfectionism is counter-productive. Please share your views on perfectionism.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0021","type":"sentence","difficulty":2,"knowledgePoints":["教育成长"],"content":"If you have enough time and resources that can support you to study whatever you like, what would you want to study most? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0022","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","环境保护","个人梦想","社会热点"],"content":"What measures should a city take to retain more talents and provide a favorable environment for talent growth? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0023","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"What do you think of the phenomenon where some media use exaggerated words or expressions to gain social attention? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0024","type":"sentence","difficulty":3,"knowledgePoints":["文化传承"],"content":"Which invention do you think benefits people most? Please give your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0025","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","教育成长"],"content":"Express your opinion on the main factors you would take into consideration when choosing a college major.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0026","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","环境保护","社会热点"],"content":"A niche market of the “lazy economy” that includes anything from smart home appliances to precooked meal delivery services is quickly developing. Please share your insights on the “lazy economy”.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0027","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Believe you can and you're halfway there.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0028","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Chance favors the prepared mind.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0029","type":"sentence","difficulty":2,"knowledgePoints":["文化传承","青春励志","社会热点"],"content":"What could be the reasons why young people choose visiting museums as a way to relax and socialize? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0030","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the saying: “Those who do not plan for the future will find trouble at their doorstep.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0031","type":"sentence","difficulty":5,"knowledgePoints":["文化传承","教育成长"],"content":"Express your opinion on “Ink on paper can only convey so much, true understanding requires putting knowledge into action.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0032","type":"sentence","difficulty":2,"knowledgePoints":["文化传承","教育成长"],"content":"If you were a member of the student union, what measures would you suggest to promote traditional Chinese culture on campus? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0033","type":"sentence","difficulty":2,"knowledgePoints":["环境保护","青春励志","国际视野"],"content":"What kind of tourism do you prefer? Ecotourism, sports tourism or literary tourism? Please give your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0034","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","国际视野","社会热点"],"content":"As VR tours make it possible to explore tourist attractions online, what do you think the tourism industry will be like in ten years? Please give your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0035","type":"sentence","difficulty":5,"knowledgePoints":["文化传承","教育成长"],"content":"Express your opinion on the statement, “Knowledge of languages is the doorway to wisdom.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0036","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"What roles do you think traditional culture can play in the progress of modern society? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0037","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Do you prefer living in a big city or a small town? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0038","type":"sentence","difficulty":2,"knowledgePoints":["青春励志"],"content":"Express your opinion on the statement, “In the middle of difficulty lies opportunity.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0039","type":"sentence","difficulty":1,"knowledgePoints":["个人梦想"],"content":"Who is the person you admire the most? What kind of inspiration or motivation has he or she brought you?","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0040","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Which one is more important: choice or endeavor? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0041","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","文化传承"],"content":"Express your opinion on how the Internet slang is mixing with real-life language usage.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0042","type":"sentence","difficulty":2,"knowledgePoints":["教育成长","个人梦想","社会热点"],"content":"Can you accept “part-work and part-study” lifestyle? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0043","type":"sentence","difficulty":3,"knowledgePoints":["文化传承"],"content":"Some people “do nothing until the last minute”. What do you think of this attitude? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0044","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on “Close neighbors are better than distant relatives.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0045","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","个人梦想","社会热点"],"content":"China’s cultural sector maintained steady growth in terms of revenue last year. What factors do you think contributed to this phenomenon? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0046","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","个人梦想","青春励志","社会热点"],"content":"Some young people are embracing a “lying flat” lifestyle, which means they adopt a more leisure and non-materialistic attitude when coping with highly competitive professional environment. What do you think of “lying flat”? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0047","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"If a time machine could take you anywhere for one day, when and where would you go? Please share your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0048","type":"sentence","difficulty":4,"knowledgePoints":["青春励志"],"content":"Express your understanding of the balance between cooperation and competition.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0049","type":"sentence","difficulty":4,"knowledgePoints":["环境保护","社会热点"],"content":"Many people prefer plastic straws to paper ones. How can we find a balance between convenience and protecting the environment? Please share your insights.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0050","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","社会热点"],"content":"Is there any possibility that man will be ruled by modern technology? Please share your opinion.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0051","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Do not blame an uneven floor if you do not know how to dance.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0052","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “What you do not want done to yourself, do not do to others.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0053","type":"sentence","difficulty":4,"knowledgePoints":["科技发展"],"content":"AI technology has the ability to analyze someone’s voice and create a synthetic voice that can be used in different situations. What do you believe are the advantages and disadvantages of this technology? Please share your thoughts.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0054","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长","个人梦想"],"content":"Which one do you think is more important in choosing a major, personal interest or job prospect? Please give your reasons.","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0055","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “The best way to solve a problem is to first let go of the idea that there is a problem.”","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0056","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Confidence","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0057","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Responsibility","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0058","type":"keyword","difficulty":3,"knowledgePoints":["国际视野"],"content":"Diversity","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0059","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Cooperation","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0060","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Courage","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0061","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Perseverance","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0062","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Opportunity","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0063","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Inclusiveness","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0064","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Diligence","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0065","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Independence","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0066","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","青春励志"],"content":"Ambition","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0067","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Stress","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0068","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Perfectionism","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0069","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Self-reliance","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0070","type":"keyword","difficulty":2,"knowledgePoints":["社会热点"],"content":"Mutual Benefit","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0071","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Competition","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0072","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Craftsmanship","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0073","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Enterprising Spirit","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0074","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Partnership","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0075","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Change","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0076","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Food Security","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0077","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Youth Wisdom","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0078","type":"keyword","difficulty":3,"knowledgePoints":["教育成长"],"content":"Lifelong Learning","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0079","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Digital Divide","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0080","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Aging Society","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0081","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Energy Conservation","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0082","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","社会热点"],"content":"Social Media","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0083","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","国际视野"],"content":"Smart Tourism","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0084","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Ecological Protection","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0085","type":"keyword","difficulty":3,"knowledgePoints":["环境保护","国际视野"],"content":"Green Travel","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0086","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Intellectual Property","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0087","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Garbage Sorting","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0088","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Digital China","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0089","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Farmland Protection","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0090","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Information Security","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0091","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Urbanization","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0092","type":"keyword","difficulty":3,"knowledgePoints":["环境保护","国际视野","社会热点"],"content":"Open Economy","options":[],"answer":"","source":"2023职场英语挑战赛省赛命题"},{"_id":"real_0093","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “All things have a beginning, but few can reach the end.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0094","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","个人梦想","青春励志","社会热点"],"content":"Nowadays, many young people choose to be “slash youth”（斜杠青年）, who undertake multiple careers and pursue diversified lifestyles. What do you think of this choice? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0095","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"Recently, Baidu’s driverless robotaxis have sparked heated discussions. Do you think they will replace traditional taxi drivers? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0096","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Don’t count the days, make the days count.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0097","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","青春励志","社会热点"],"content":"Chinese rural sports events, like “Village BA”, have unexpectedly gained widespread popularity. How do you think about this phenomenon?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0098","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","社会热点"],"content":"Nowadays, traditional clothing is gradually becoming a new fashion element. What do you think of this trend? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0099","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长","社会热点"],"content":"Nowadays, many people pursue further education and certifications even after starting their careers. What do you think of this trend? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0100","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","青春励志"],"content":"Express your view on the statement, “Perseverance can move mountains.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0101","type":"sentence","difficulty":2,"knowledgePoints":["科技发展"],"content":"Express your opinion on the statement, “Hills amass to create a high mountain; streams converge to create a mighty river.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0102","type":"sentence","difficulty":3,"knowledgePoints":["社会热点"],"content":"As some people and employers increasingly refer to psychological tests like MBTI（人格测试）, how do you view this phenomenon?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0103","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Express your opinion on the statement, “Cleverness is a gift, kindness is a choice.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0104","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Express your opinion on the statement, “Your work is going to fill a large part of your life, and the only way to be truly satisfied is to do what you believe is great work, and the only way to do great work is to love what you do.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0105","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想","社会热点"],"content":"What can we do to enjoy the convenience and entertainment of cell phones bring us without being dominated by them? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0106","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","教育成长","社会热点"],"content":"With the widespread use of smart typing, how do you view the phenomenon of the general decline in Chinese handwriting skills?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0107","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","国际视野","社会热点"],"content":"During the past few years, Chinese micro-dramas have found a huge fan base worldwide. How do you perceive this phenomenon?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0108","type":"sentence","difficulty":3,"knowledgePoints":["科技发展"],"content":"How do you interpret “There’s no limit to technology.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0109","type":"sentence","difficulty":5,"knowledgePoints":["文化传承","青春励志"],"content":"Chinese cultural heritage is the crystallization of the Chinese nation's civilization and a valuable asset for all humanity. As young people, what can we do to protect, inherit, and promote traditional culture?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0110","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"What role does digital technology play in the preservation and transmission of traditional culture?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0111","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “If a man takes no thought about what is distant, he will find sorrow near at hand.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0112","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","青春励志","社会热点"],"content":"Nowadays, “Neo-Chinese Style”（新中式） is highly favored by the younger generation and has extended from clothing to various fields. How do you perceive and interpret this phenomenon?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0113","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “The flames rise high when everybody joins to add fuel.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0114","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","青春励志","社会热点"],"content":"Some performances combining traditional culture with pop culture forms are gaining popularity among China’s younger generation. What do you think of this trend?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0115","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","个人梦想","社会热点"],"content":"Nowadays, more people are choosing freelance work over traditional employment. What do you think of this trend? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0116","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","社会热点"],"content":"How to avoid mindless consumption when shopping online? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0117","type":"sentence","difficulty":3,"knowledgePoints":["个人梦想","青春励志","社会热点"],"content":"Seeking high quality at a lower cost, how does this mindset among young people impact their purchasing decisions and lifestyle choices?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0118","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “To make a big career, we must start small.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0119","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “A person who cannot control himself could not be called a free man.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0120","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想","青春励志"],"content":"Express your opinion on the statement, “One must have ambition first in all studies.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0121","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “The future is bright, while the road has twists and turns.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0122","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长"],"content":"Do you think it is necessary to offer elective courses such as textiles, cooking, carpentry, etc. in elementary school? Please share your reasons.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0123","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","社会热点"],"content":"What is the importance of integrating artificial intelligence into service industry? Please share your insights with examples.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0124","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Express your opinion on the statement, “Love yourself first and everything else falls into line.”","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0125","type":"sentence","difficulty":2,"knowledgePoints":["文化传承","国际视野"],"content":"Traditional Chinese Medicine gradually enters the global stage. How can we effectively promote traditional Chinese medicine? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0126","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","青春励志","社会热点"],"content":"Neo-Chinese style coffee, such as Osmanthus Oolong Latte, has gradually entered the market. The combination of tea and coffee has become a new trend among young people. What do you think about this fusion drink?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0127","type":"sentence","difficulty":2,"knowledgePoints":["教育成长","个人梦想","青春励志"],"content":"An increasing number of college students are choosing to volunteer at various competitions and events. In your opinion, what benefits can volunteer work bring?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0128","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"Nowadays, people choose to vist museums as a way of relaxation. What do you think are the reasons behind this phenomenon? Please share your ideas.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0129","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","个人梦想","国际视野","社会热点"],"content":"The video game Black Myth: Wukong, inspired by the ancient Chinese tale “Journey to the West,” has gained worldwide popularity. Please share your views on this phenomenon.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0130","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","青春励志"],"content":"What challenges does big data present to our lives, and how should we respond to them?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0131","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","青春励志","社会热点"],"content":"In recent years, more and more young Chinese people are joining in appreciating and preserving traditional crafts. What do you think of this phenomenon?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0132","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","青春励志","社会热点"],"content":"China’s urban youth are exploring “New Chinese-style Wellness” to stay healthy within their fast-paced lives, such as sipping warm water. What do you think of this trend?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0133","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长","青春励志","社会热点"],"content":"In recent years, many primary schools in China have introduced labor education courses. What do you think of the significance of this phenomenon? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0134","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","青春励志","社会热点"],"content":"The field of smart elderly care products and services has encountered development opportunities. What suggestions do you have for creating new models of smart and healthy elderly care?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0135","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"Explore the impact of cultural and creative industries on the preservation and revitalization of intangible cultural heritage.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0136","type":"sentence","difficulty":5,"knowledgePoints":["个人梦想"],"content":"The journey of growth is filled with unforgettable experiences. Please share an event or a person from your adolescence that left the deepest impression on you.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0137","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"What makes a good entrepreneur in your field? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0138","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"Beijing is now extending the length of inter-class break from 10 minutes to 15 minutes. What do you think of this transformation? What effects will be brought by this policy? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0139","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","青春励志"],"content":"Peking Opera is now attracting younger audience in increasing numbers. How do you think we can promote Peking Opera to young audiences? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0140","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","教育成长","青春励志","国际视野"],"content":"The advent of digital learning platforms has transformed education. What do you see as the benefits and challenges of online learning in today’s world?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0141","type":"sentence","difficulty":4,"knowledgePoints":["个人梦想"],"content":"What can we do to keep the balance between passion and practicality when choosing a career path? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0142","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","环境保护","个人梦想","青春励志"],"content":"What can we do to maintain both mental health and well-being in a competitive work environment? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0143","type":"sentence","difficulty":3,"knowledgePoints":["个人梦想","青春励志","社会热点"],"content":"Express your understanding of the importance of emotional intelligence in the workplace and its impact on teamwork.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0144","type":"sentence","difficulty":5,"knowledgePoints":["文化传承","国际视野"],"content":"From Zibo to Harbin, cultural tourism has continued to develop in recent years, and its popularity has not decreased. Please give some examples to illustrate the deep integration of culture and tourism.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0145","type":"sentence","difficulty":3,"knowledgePoints":["青春励志"],"content":"This year, the Paris Olympic Games has shown unprecedented attention and enthusiasm for sports events. Please share one thing that impresses you most about the Olympic Games.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0146","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","个人梦想","社会热点"],"content":"What can we do to ensure that elderly individuals can also enjoy the convenience brought by digitalization? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0147","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","教育成长"],"content":"Do you think digital intelligence technology will narrow or widen the education gap?","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0148","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"Do you think artificial intelligence will replace humans? Please share your opinion.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0149","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","社会热点"],"content":"In what ways do you think we can infuse historical sites with modern vitality? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0150","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","教育成长"],"content":"Express your opinion on the main factors you would take into consideration when choosing a college major.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0151","type":"sentence","difficulty":2,"knowledgePoints":["社会热点"],"content":"Do you prefer living in a big city or a small town? Please share your reasons.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0152","type":"sentence","difficulty":4,"knowledgePoints":["青春励志"],"content":"Express your understanding of the balance between cooperation and competition.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0153","type":"sentence","difficulty":4,"knowledgePoints":["环境保护","社会热点"],"content":"Many people prefer plastic straws to paper ones. How can we find a balance between convenience and protecting the environment? Please share your insights.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0154","type":"sentence","difficulty":4,"knowledgePoints":["科技发展"],"content":"AI technology has the ability to analyze someone’s voice and create a synthetic voice that can be used in different situations. What do you believe are the advantages and disadvantages of this technology? Please share your thoughts.","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0155","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Innovation","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0156","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","环境保护"],"content":"Sustainability","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0157","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Volunteering Spirit","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0158","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"High-quality Development","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0159","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Devotion","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0160","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Perseverance","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0161","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Leadership","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0162","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Craftsmanship Spirit","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0163","type":"keyword","difficulty":3,"knowledgePoints":["文化传承","青春励志"],"content":"Critical Thinking","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0164","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Diligence","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0165","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Team Player","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0166","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","社会热点"],"content":"Lifestyle","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0167","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Health","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0168","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Curiosity","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0169","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Optimism","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0170","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","青春励志"],"content":"Teamwork","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0171","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Passion","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0172","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Patience","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0173","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Respect","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0174","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Self-discipline","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0175","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Cooperation","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0176","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Communication","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0177","type":"keyword","difficulty":3,"knowledgePoints":["国际视野"],"content":"Globalization","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0178","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Empathy","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0179","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Creativity","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0180","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Adaptability","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0181","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Inclusiveness","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0182","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Harmony","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0183","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Unity","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0184","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","青春励志"],"content":"Ambition","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0185","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Heroism","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0186","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Procrastination","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0187","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Smart Life","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0188","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Cyber Security","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0189","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","社会热点"],"content":"Flexible Employment","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0190","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Food Security","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0191","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Ecological Civilization","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0192","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Face-scanning Payment","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0193","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"High-speed Rail","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0194","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","环境保护"],"content":"New Energy","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0195","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"Online Study","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0196","type":"keyword","difficulty":3,"knowledgePoints":["教育成长"],"content":"Lifelong Education","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0197","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Rural Revitalization","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0198","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Resource Conservation","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0199","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Culture Heritage","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0200","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Cultural Relics Protection","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0201","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"Paperless Learning","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0202","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Ride-sharing","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0203","type":"keyword","difficulty":3,"knowledgePoints":["文化传承","教育成长"],"content":"Bilingual Education","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0204","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Elderly Care","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0205","type":"keyword","difficulty":3,"knowledgePoints":["教育成长","社会热点"],"content":"Education Equality","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0206","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Beijing Central Axis","options":[],"answer":"","source":"2024职场英语挑战赛省赛命题"},{"_id":"real_0207","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"With the popularity of AI-generated content, do you think human creativity will still be valued in the future? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0208","type":"sentence","difficulty":4,"knowledgePoints":["教育成长","个人梦想"],"content":"Some argue that the goal of lifelong learning adds pressure to people’s already busy lives. Do you agree with this view? Why, or why not?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0209","type":"sentence","difficulty":2,"knowledgePoints":["科技发展"],"content":"With the increasing adoption of smart homes, in what ways has this new technology improved the quality of our daily lives? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0210","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","国际视野","社会热点"],"content":"Today, more and more people around the world are choosing China as a travel destination. If you were to recommend one Chinese city for international friends to visit, which would it be and why?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0211","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"Does AI affect the ways people think? What good or bad effects have you noticed after the use of AI? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0212","type":"sentence","difficulty":2,"knowledgePoints":["教育成长","环境保护","个人梦想","青春励志","社会热点"],"content":"How can individuals look after their physical and mental wellbeing in highly competitive work and study environments? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0213","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","社会热点"],"content":"Do you believe that the future development of robots will play a significant role in the field of elder care? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0214","type":"sentence","difficulty":3,"knowledgePoints":["环境保护","社会热点"],"content":"Adults have become a key consumer group in the designer toy market. What’s your opinion on this emerging consumer trend?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0215","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想"],"content":"Based on your own experience, what does the term “meaningful work” signify to you? Please share your insights.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0216","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","个人梦想"],"content":"The Chinese animated film Ne Zha has gained widespread acclaim and outstanding box office returns. What do you think are the main reasons for this success?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0217","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"Advancements in technology have led to the rise of digital museums, transforming how we engage with culture and history. How do you view this trend?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0218","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","环境保护","社会热点"],"content":"Livestreaming e-commerce has become a new way to promote rural revitalization. What is your opinion of this trend?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0219","type":"sentence","difficulty":4,"knowledgePoints":["科技发展","文化传承","个人梦想"],"content":"AI-powered job interviews are gaining popularity nowadays. What do you think are their advantages and disadvantages?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0220","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想","青春励志","社会热点"],"content":"How can job seekers use AI tools to improve their job search options, and what challenges should they be aware of when using this  technology? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0221","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想"],"content":"As AI technology advances, some people worry that it may replace humans in many jobs. What is your opinion on this issue?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0222","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","国际视野"],"content":"In 2024, the Spring Festival was added to UNESCO’s Intangible Cultural Heritage list, marking its global cultural significance. What do you think makes it important to preserve traditional festivals like the Spring Festival?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0223","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","环境保护","个人梦想","社会热点"],"content":"More and more ‘digital nomads’—people working online from anywhere—are becoming part of the modern workforce. What do you think about this trend?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0224","type":"sentence","difficulty":3,"knowledgePoints":["科技发展"],"content":"Robots have been widely used in various fields. What do you believe are the advantages and potential uses of robots in our daily lives?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0225","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想","青春励志","社会热点"],"content":"AI is now being integrated into daily life, from smart assistants to personalized healthcare systems. How do you view the impact of AI on society?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0226","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","文化传承"],"content":"In an era of rapid technological advancement, how can we preserve cultural heritage while embracing innovation? Please share your thoughts.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0227","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","教育成长","青春励志"],"content":"As AI is increasingly used in areas such as writing, design, and programming, what core skills do we need to stay competitive in the digital age?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0228","type":"sentence","difficulty":4,"knowledgePoints":["科技发展","文化传承","教育成长"],"content":"What are the main differences between online education and traditional classroom learning, and what are the pros and cons of each? Please share your thoughts.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0229","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","青春励志","社会热点"],"content":"While livestream shopping on platforms like Douyin offers extra convenience for the elderly, what specific challenges might they also face?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0230","type":"sentence","difficulty":3,"knowledgePoints":["国际视野"],"content":"In today’s world, which is more valuable: being a specialist in a specific field, or a versatile generalist?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0231","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长"],"content":"Do you think “lifelong learning” is important for your future career? Please give your reasons.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0232","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"Do you agree that gaining experience from various internships is more important than getting good grades? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0233","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"Do you think AI will enhance or diminish human creativity? Please give your reasons.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0234","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","个人梦想","青春励志"],"content":"Nowadays, the “Neo-Chinese Style” is influencing a growing number of fields, and is highly favored by young people. How do you view the popularity of “Neo-Chinese Style”?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0235","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","个人梦想","青春励志"],"content":"When choosing a career path, do you think it is more important for young people to pursue their passion, or to seek stability? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0236","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长","个人梦想","青春励志","社会热点"],"content":"Which type of skills do you think is more important for workplace success—soft skills such as communication and teamwork, or hard skills such as programming and financial analysis?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0237","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"How do you think social media has changed the way people communicate? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0238","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承"],"content":"With the rise of AI-generated music, art and videos, how do you think this new technology will impact the future of artistic creation? Please share your views.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0239","type":"sentence","difficulty":3,"knowledgePoints":["社会热点"],"content":"The development of new-energy vehicles (EVs) is accelerating. How will this transformation impact our society?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0240","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","教育成长","社会热点"],"content":"How can remote-learning technology improve educational accessibility in rural areas? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0241","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"What specific skills and competencies do you believe are most important for students to thrive in the digital age? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0242","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","文化传承"],"content":"In the digital age, what new methods and channels are available to preserve and promote traditional crafts? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0243","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","教育成长","环境保护"],"content":"Digital museums and virtual cultural experiences are becoming increasingly popular. How do you think technology is reshaping our ways of learning about history and culture?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0244","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想","青春励志","国际视野"],"content":"With the growing popularity of short-video platforms, how can young creators use short videos to better tell China’s stories to the world?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0245","type":"sentence","difficulty":3,"knowledgePoints":["青春励志","国际视野"],"content":"As a member of the younger generation, how can you leverage your own experiences and views to better tell China’s stories to the world?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0246","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","个人梦想","社会热点"],"content":"Nowadays, music festivals have become a “happiness code” for more and more people. What do you think of this phenomenon?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0247","type":"sentence","difficulty":2,"knowledgePoints":["科技发展"],"content":"Express your opinion of the statement, “There is more than one way to get to your destination, and the well-worn trail isn’t the only way worth taking.”","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0248","type":"sentence","difficulty":2,"knowledgePoints":["个人梦想","国际视野"],"content":"Some people prefer fast-paced, sightseeing-focused travel, while others enjoy relaxing vacations that focus on leisure and unwinding. Which travel style do you prefer, and why?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0249","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","文化传承","个人梦想"],"content":"How can technology help more people enjoy and understand our cultural heritage? Please share your opinions.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0250","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","社会热点"],"content":"Some AI videos alter classic characters from films and TV series to attract online attention. What is your opinion about this phenomenon?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0251","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","环境保护","国际视野","社会热点"],"content":"China’s expanded visa-free policies are attracting more and more international tourists. What benefits can this trend contribute to cultural exchange and economic development? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0252","type":"sentence","difficulty":4,"knowledgePoints":["科技发展","教育成长"],"content":"What are the advantages and disadvantages of fragmented learning through mobile devices? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0253","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","社会热点"],"content":"How can AI better assist and serve elderly or disabled people in their daily lives? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0254","type":"sentence","difficulty":3,"knowledgePoints":["青春励志","社会热点"],"content":"China has launched the national “Year of Weight Management” health initiative. Please elaborate on the social significance of this program.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0255","type":"sentence","difficulty":2,"knowledgePoints":["环境保护","青春励志"],"content":"Running marathons has become more popular across China. What value can such sports activities offer to individuals and cities? Please share your opinion.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0256","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"“A smooth sea never made a skilled sailor.” What does this saying mean to you in terms of your own life and learning?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0257","type":"sentence","difficulty":4,"knowledgePoints":["科技发展","青春励志"],"content":"Many people feel they spend too much time on their phones. What can we do to develop a healthier relationship with our digital devices?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0258","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","环境保护"],"content":"Our carbon footprint measures the impact we have on the environment. What small but practical changes can we make in our daily lives to significantly reduce our collective footprint?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0259","type":"sentence","difficulty":3,"knowledgePoints":["个人梦想"],"content":"A popular saying goes, “Comparison is the thief of joy.” What are your thoughts on this statement?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0260","type":"sentence","difficulty":2,"knowledgePoints":["青春励志"],"content":"“Buy now, pay later” services are very popular today. What are the potential benefits and risks of this spending habit for young people?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0261","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"Why do you think unboxing videos and product review videos are so popular online? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0262","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","青春励志","社会热点"],"content":"Why do you think so many young people today prefer buying more practical and cost-effective products?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0263","type":"sentence","difficulty":3,"knowledgePoints":["文化传承","教育成长","个人梦想","青春励志","社会热点"],"content":"For young job seekers, do you think it is more advantageous to have knowledge of multiple skills or to master one specific skill? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0264","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"The emergence of food delivery apps has brought many changes to our lives. What conveniences and drawbacks do you think it has brought us?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0265","type":"sentence","difficulty":4,"knowledgePoints":["科技发展","青春励志"],"content":"Smartphones serve as valuable tools, but we sometimes feel dominated by them. In your view, how can we establish a healthier relationship with our devices?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0266","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","个人梦想"],"content":"Many people believe that failure is a necessary step towards success. Can you share a personal experience when a setback taught you a valuable lesson?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0267","type":"sentence","difficulty":3,"knowledgePoints":["个人梦想","青春励志","社会热点"],"content":"More young people are starting their own businesses instead of working for another employer. What is your opinion about this trend?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0268","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","青春励志","社会热点"],"content":"What are the opportunities and challenges that livestream shopping presents to consumers? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0269","type":"sentence","difficulty":3,"knowledgePoints":["科技发展","文化传承","环境保护"],"content":"Do you think self-driving vehicles will become the primary means of transportation within the next decade? Why or why not?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0270","type":"sentence","difficulty":2,"knowledgePoints":["教育成长","个人梦想","社会热点"],"content":"What are the most important skills needed to succeed in the modern workplace? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0271","type":"sentence","difficulty":2,"knowledgePoints":["科技发展","文化传承","社会热点"],"content":"How can social media help people connect across diverse cultures? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0272","type":"sentence","difficulty":3,"knowledgePoints":["科技发展"],"content":"How will smart devices change our daily lives in the next 10 years? Please share your thoughts.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0273","type":"sentence","difficulty":2,"knowledgePoints":["文化传承"],"content":"How can movies and TV shows help people better understand different cultures? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0274","type":"sentence","difficulty":2,"knowledgePoints":["文化传承","青春励志"],"content":"If you could design a cultural museum for young people, what would it include? Please share your ideas.","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0275","type":"sentence","difficulty":1,"knowledgePoints":["科技发展","环境保护"],"content":"What are some effective simple actions that we as individuals can take to live more sustainably, and why does it matter for both people and the environment?","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0276","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Innovation","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0277","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","环境保护"],"content":"Sustainability","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0278","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Transformation","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0279","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Empathy","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0280","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Digitalization","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0281","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想","青春励志"],"content":"Teamwork","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0282","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Creativity","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0283","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Cybersecurity","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0284","type":"keyword","difficulty":3,"knowledgePoints":["个人梦想"],"content":"Self-discipline","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0285","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","教育成长"],"content":"Digital Literacy","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0286","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"National Fitness","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0287","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Weight Management","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0288","type":"keyword","difficulty":3,"knowledgePoints":["文化传承","青春励志"],"content":"Cultural Confidence","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0289","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"China Chic","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0290","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"AI Plus (AI+)","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0291","type":"keyword","difficulty":3,"knowledgePoints":["文化传承","国际视野"],"content":"Red Tourism","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0292","type":"keyword","difficulty":3,"knowledgePoints":["环境保护"],"content":"Green Living","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0293","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Cultural Identity","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0294","type":"keyword","difficulty":3,"knowledgePoints":["环境保护","社会热点"],"content":"The Sharing Economy","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0295","type":"keyword","difficulty":3,"knowledgePoints":["教育成长"],"content":"Lifelong Learning","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0296","type":"keyword","difficulty":3,"knowledgePoints":["青春励志","社会热点"],"content":"Social Responsibility","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0297","type":"keyword","difficulty":3,"knowledgePoints":["社会热点"],"content":"Food Security","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0298","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Time Management","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0299","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Volunteering","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0300","type":"keyword","difficulty":3,"knowledgePoints":["文化传承"],"content":"Cultural Heritage","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0301","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Digital Age","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0302","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Paperless Reading","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0303","type":"keyword","difficulty":3,"knowledgePoints":["青春励志"],"content":"Mental Wellness","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0304","type":"keyword","difficulty":3,"knowledgePoints":["环境保护","社会热点"],"content":"Circular Economy","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0305","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"E-commerce","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0306","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Live Streaming","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0307","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","环境保护"],"content":"New Energy Vehicles","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0308","type":"keyword","difficulty":3,"knowledgePoints":["科技发展"],"content":"Smart Home","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0309","type":"keyword","difficulty":3,"knowledgePoints":["环境保护","社会热点"],"content":"Second-hand Economy","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"},{"_id":"real_0310","type":"keyword","difficulty":3,"knowledgePoints":["科技发展","青春励志"],"content":"Smart Healthcare","options":[],"answer":"","source":"2025职场英语挑战赛省赛命题"}];
+  saveQuestions(REAL_SPEECH_BANK);
+  localStorage.setItem('pb_speech_data_version', DATA_VERSION);
+}
+
+// ==================== 启动 ====================
+initSampleData();
+renderBank();
+renderRules();
+</script>
+
+</body>
+</html>
