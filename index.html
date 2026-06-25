@@ -869,8 +869,8 @@ function renderBank() {
     html += '<td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + (q.content||'').replace(/"/g,'&quot;') + '">' + (q.content||'') + '</td>';
     html += '<td><span class="badge badge-gray">' + (q.knowledgePoints||[]).join('</span> <span class="badge badge-gray">') + '</span></td>';
     html += '<td style="font-size:11px;color:var(--text-muted)">' + (q.source||'') + '</td>';
-    html += '<td><button class="btn btn-outline btn-xs" onclick="editQuestion(' + i + ')" style="margin-right:3px">编辑</button>' +
-            '<button class="btn btn-danger btn-xs" onclick="deleteQuestion(' + i + ')">删除</button></td>';
+    html += '<td><button class="btn btn-outline btn-xs" onclick="editQuestion(\'' + q._id + '\')" style="margin-right:3px">编辑</button>' +
+            '<button class="btn btn-danger btn-xs" onclick="deleteQuestion(\'' + q._id + '\')">删除</button></td>';
     html += '</tr>';
   });
   html += '</tbody></table>';
@@ -888,8 +888,13 @@ function openAddQuestion() {
   document.getElementById('question-modal').style.display = 'flex';
 }
 
-function editQuestion(idx) {
-  var q = getQuestions()[idx];
+function editQuestion(id) {
+  var qs = getQuestions();
+  var q = null;
+  for (var j = 0; j < qs.length; j++) {
+    if (qs[j]._id === id) { q = qs[j]; break; }
+  }
+  if (!q) { toast('主题不存在', 'error'); return; }
   document.getElementById('modal-title').textContent = '编辑演讲主题';
   document.getElementById('q-edit-id').value = q._id || '';
   document.getElementById('q-type').value = q.type;
@@ -959,9 +964,14 @@ function saveQuestion() {
   toast(editId ? '主题已更新' : '主题已添加');
 }
 
-function deleteQuestion(idx) {
+function deleteQuestion(id) {
   if (!confirm('确定删除这个演讲主题吗？此操作不可恢复。')) return;
   var all = getQuestions();
+  var idx = -1;
+  for (var k = 0; k < all.length; k++) {
+    if (all[k]._id === id) { idx = k; break; }
+  }
+  if (idx === -1) { toast('主题已不存在', 'error'); return; }
   all.splice(idx, 1);
   saveQuestions(all);
   renderBank();
